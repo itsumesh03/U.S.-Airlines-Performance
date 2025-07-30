@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="us_airline_database.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="6917"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="airlines" custom_title="0" dock_id="4" table="4,8:mainairlines"/><dock_state state="000000ff00000000fd00000001000000020000043c000002e4fc0100000002fb000000160064006f0063006b00420072006f007700730065003101000000000000043c0000000000000000fb000000160064006f0063006b00420072006f00770073006500340100000000ffffffff0000011800ffffff0000043c0000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="SQL 1">
+
+SELECT * FROM airlines LIMIT 10;
+SELECT * FROM airports LIMIT 10;
+SELECT * FROM flights LIMIT 10;
+
+
+-- COUNT NUMBER OF ROWS
+
+SELECT COUNT(*) FROM airlines;
+SELECT COUNT(*) FROM airports;
+SELECT COUNT(*) FROM flights;
+
+
+-- Update the Column with Proper Format
+
+ALTER TABLE flights ADD COLUMN FLIGHT_DATE DATE;
+UPDATE flights
+SET FLIGHT_DATE = printf('%04d-%02d-%02d', YEAR, MONTH, DAY);
+
+
+
+
+-- Convert HHMM to TIME
+
+ALTER TABLE flights ADD COLUMN SCHED_DEP_TIME TEXT;
+ALTER TABLE flights ADD COLUMN ACTUAL_DEP_TIME TEXT;
+
+ALTER TABLE flights ADD COLUMN SCHED_ARI_TIME TEXT;
+ALTER TABLE flights ADD COLUMN ACTUAL_ARI_TIME TEXT;
+
+
+-- Scheduled Departure
+UPDATE flights
+SET SCHED_DEP_TIME = 
+  printf('%02d:%02d', SCHEDULED_DEPARTURE / 100, SCHEDULED_DEPARTURE % 100);
+
+  
+-- Scheduled Arrival
+UPDATE flights
+SET SCHED_ARI_TIME = 
+  printf('%02d:%02d', SCHEDULED_ARRIVAL / 100, SCHEDULED_ARRIVAL % 100);
+
+-- Actual Departure
+UPDATE flights
+SET ACTUAL_DEP_TIME = 
+  CASE 
+    WHEN DEPARTURE_TIME IS NOT NULL THEN
+      printf('%02d:%02d', DEPARTURE_TIME / 100, DEPARTURE_TIME % 100)
+    ELSE NULL
+  END;
+
+  
+-- Actual Arrival
+UPDATE flights
+SET ACTUAL_ARI_TIME = 
+  CASE 
+    WHEN ARRIVAL_TIME IS NOT NULL THEN
+      printf('%02d:%02d', ARRIVAL_TIME / 100, ARRIVAL_TIME % 100)
+    ELSE NULL
+  END;
+  
+  
+  
+  
+  
+
+-- Create the Joined View in SQLite
+
+ CREATE VIEW flight_details AS
+SELECT 
+  f.FLIGHT_DATE,
+  f.YEAR, f.MONTH, f.DAY, f.DAY_OF_WEEK,
+  f.AIRLINE, a.AIRLINE AS AIRLINE_NAME,
+  f.FLIGHT_NUMBER, f.TAIL_NUMBER,
+  f.ORIGIN_AIRPORT, ao.AIRPORT AS ORIGIN_AIRPORT_NAME, ao.CITY AS ORIGIN_CITY,
+  f.DESTINATION_AIRPORT, ad.AIRPORT AS DESTINATION_AIRPORT_NAME, ad.CITY AS DESTINATION_CITY,
+  f.SCHED_DEP_TIME, f.ACTUAL_DEP_TIME,
+  f.SCHEDULED_ARRIVAL, f.ARRIVAL_TIME,
+  f.DEPARTURE_DELAY, f.ARRIVAL_DELAY,
+  f.CANCELLED, f.CANCELLATION_REASON,
+  f.AIR_TIME, f.DISTANCE, f.AIRLINE_DELAY, f.WEATHER_DELAY, f.LATE_AIRCRAFT_DELAY
+FROM flights f
+JOIN airlines a ON f.AIRLINE = a.IATA_CODE
+JOIN airports ao ON f.ORIGIN_AIRPORT = ao.IATA_CODE
+JOIN airports ad ON f.DESTINATION_AIRPORT = ad.IATA_CODE;
+
+  
+  
+  
+  
+  
+  
+  
+  
+--   Data Quality Checks &amp; Handling Missing Values
+  
+--  Check for NULLs in Important Columns
+  
+ SELECT 
+  SUM(CASE WHEN AIRLINE IS NULL THEN 1 ELSE 0 END) AS missing_airline,
+  SUM(CASE WHEN ORIGIN_AIRPORT IS NULL THEN 1 ELSE 0 END) AS missing_origin,
+  SUM(CASE WHEN DESTINATION_AIRPORT IS NULL THEN 1 ELSE 0 END) AS missing_destination,
+  SUM(CASE WHEN DEPARTURE_TIME IS NULL THEN 1 ELSE 0 END) AS missing_departure_time,
+  SUM(CASE WHEN ARRIVAL_TIME IS NULL THEN 1 ELSE 0 END) AS missing_arrival_time,
+  SUM(CASE WHEN ARRIVAL_DELAY IS NULL THEN 1 ELSE 0 END) AS missing_arrival_delay
+FROM flights;
+
+DELETE FROM airports
+WHERE LATITUDE IS NULL OR LONGITUDE IS NULL;
+
+SELECT *
+FROM airports
+WHERE LATITUDE IS NULL OR LONGITUDE IS NULL;
+
+
+--   Mark missing ARRIVAL_TIME as 'CANCELLED'
+
+UPDATE flights
+SET ARRIVAL_TIME = NULL
+WHERE CANCELLED = 1;
+
+Similarly, mark missing DEPARTURE_TIME
+UPDATE flights
+SET DEPARTURE_TIME = NULL
+WHERE CANCELLED = 1;
+
+
+-- ALTER TABLE flights ADD COLUMN STATUS TEXT;
+
+UPDATE flights
+SET STATUS = 
+  CASE 
+    WHEN CANCELLED = 1 THEN 'Cancelled'
+    WHEN DIVERTED = 1 THEN 'Diverted'
+    ELSE 'Completed'
+  END;
+
+
+-- Fill Missing Delay Columns with 0
+  
+UPDATE flights
+SET ARRIVAL_DELAY = 0
+WHERE ARRIVAL_DELAY IS NULL;
+
+UPDATE flights
+SET DEPARTURE_DELAY = 0
+WHERE DEPARTURE_DELAY IS NULL;
+
+UPDATE flights
+SET AIRLINE_DELAY = 0
+WHERE AIRLINE_DELAY IS NULL;
+
+UPDATE flights
+SET WEATHER_DELAY = 0
+WHERE WEATHER_DELAY IS NULL;
+
+UPDATE flights
+SET SECURITY_DELAY = 0
+WHERE SECURITY_DELAY IS NULL;
+ 
+UPDATE flights
+SET CANCELLATION_REASON = 0
+WHERE CANCELLATION_REASON IS NULL;
+
+UPDATE flights
+SET AIR_SYSTEM_DELAY = 0
+WHERE AIR_SYSTEM_DELAY IS NULL;
+
+UPDATE flights
+SET LATE_AIRCRAFT_DELAY = 0
+WHERE LATE_AIRCRAFT_DELAY IS NULL;
+  
+  
+  
+  
+--   Exploratory Data Analysis (EDA) using SQL
+  
+--   
+SELECT COUNT(*) AS total_records FROM flights;
+SELECT * FROM flights LIMIT 5; -- Preview 5 sample rows
+
+  
+-- Flights Over Time (Monthly Trend)
+
+SELECT 
+  MONTH,
+  COUNT(*) AS total_flights,
+  SUM(CASE WHEN CANCELLED = 1 THEN 1 ELSE 0 END) AS cancelled_flights,
+  ROUND(AVG(ARRIVAL_DELAY), 2) AS avg_arrival_delay
+FROM flights
+GROUP BY MONTH
+ORDER BY MONTH;
+
+-- Insight: Analyze peak months and seasonal delays.
+
+  
+  
+-- Day-of-Week Flight Behavior
+  
+SELECT 
+  STRFTIME('%w', FLIGHT_DATE) AS day_of_week,
+  COUNT(*) AS total_flights,
+  ROUND(AVG(ARRIVAL_DELAY), 2) AS avg_arrival_delay
+FROM flights
+GROUP BY day_of_week
+ORDER BY day_of_week;
+
+
+-- Hourly Flight Behavior
+-- 
+SELECT 
+  ACTUAL_DEP_TIME,
+  COUNT(*) AS flight_count,
+  round(avg(DEPARTURE_DELAY),2) AS avg_departure_delay
+FROM flights
+WHERE ACTUAL_DEP_TIME IS NOT NULL
+GROUP BY ACTUAL_DEP_TIME
+ORDER BY flight_count DESC
+LIMIT 10;
+ 
+--  Insight: Do early morning flights face fewer delays?
+  
+  
+  
+  
+-- Airline Performance Analysis
+  
+SELECT 
+  AIRLINE,
+  COUNT(*) AS total_flights,
+  ROUND(AVG(ARRIVAL_DELAY), 2) AS avg_arrival_delay,
+  ROUND(AVG(DEPARTURE_DELAY), 2) AS avg_departure_delay,
+  ROUND(100.0 * SUM(CANCELLED) / COUNT(*), 2) AS cancel_percent
+FROM flights
+GROUP BY AIRLINE
+ORDER BY avg_arrival_delay DESC;
+
+-- Insight: Identify worst- and best-performing airlines.
+  
+  
+  
+  
+--   Origin &amp; Destination Airport Behavior
+--   Top 10 busy airports:  
+--   
+SELECT ORIGIN_AIRPORT, COUNT(*) AS departures
+FROM flights
+GROUP BY ORIGIN_AIRPORT
+ORDER BY departures DESC
+LIMIT 10;
+
+
+-- Worst delays by airport:
+-- 
+SELECT 
+  ORIGIN_AIRPORT,
+  ROUND(AVG(DEPARTURE_DELAY), 2) AS avg_departure_delay
+FROM flights
+WHERE CANCELLED = 0
+GROUP BY ORIGIN_AIRPORT
+ORDER BY avg_departure_delay DESC
+LIMIT 10;
+
+
+
+--  Route Analysis
+--   Top routes:
+
+SELECT 
+  ORIGIN_AIRPORT,
+  DESTINATION_AIRPORT,
+  COUNT(*) AS flights
+FROM flights
+GROUP BY ORIGIN_AIRPORT, DESTINATION_AIRPORT
+ORDER BY flights DESC
+LIMIT 10;
+
+
+-- Most delayed routes:
+
+SELECT 
+  ORIGIN_AIRPORT,
+  DESTINATION_AIRPORT,
+  ROUND(AVG(ARRIVAL_DELAY), 2) AS avg_delay
+FROM flights
+WHERE CANCELLED = 0
+GROUP BY ORIGIN_AIRPORT, DESTINATION_AIRPORT
+ORDER BY avg_delay DESC
+LIMIT 10;
+
+
+  
+  
+
+-- Cancellations Analysis
+
+SELECT 
+  CANCELLATION_REASON,
+  COUNT(*) AS cancel_count
+FROM flights
+WHERE CANCELLED = 1
+GROUP BY CANCELLATION_REASON
+ORDER BY CANCELLATION_REASON;
+
+
+
+-- Cancel rate by month:
+
+SELECT 
+  MONTH,
+  ROUND(100.0 * SUM(CANCELLED) / COUNT(*), 2) AS cancel_rate
+FROM flights
+GROUP BY MONTH
+ORDER BY cancel_rate DESC;
+
+
+
+
+
+-- Delays Based on Distance
+-- 
+SELECT 
+  ROUND(DISTANCE / 100) * 100 AS distance_bucket,
+  ROUND(AVG(ARRIVAL_DELAY), 2) AS avg_arrival_delay
+FROM flights
+WHERE CANCELLED = 0
+GROUP BY distance_bucket
+ORDER BY avg_arrival_delay DESC;
+
+--  Insight: Do longer flights face fewer or more delays?
+
+
+
+-- On-time Performance Distribution
+
+-- Early Arrivals:
+-- 
+SELECT COUNT(*) AS early_arrivals
+FROM flights
+WHERE ARRIVAL_DELAY &lt; 0;
+
+-- Severe Delays:
+-- 
+SELECT COUNT(*) AS severely_delayed
+FROM flights
+WHERE ARRIVAL_DELAY &gt; 60;
+
+
+
+
+
+-- Delay Reason Breakdown'
+-- 
+SELECT 
+  ROUND(AVG(AIR_SYSTEM_DELAY), 2) AS air_system,
+  ROUND(AVG(SECURITY_DELAY), 2) AS security,
+  ROUND(AVG(AIRLINE_DELAY), 2) AS airline,
+  ROUND(AVG(LATE_AIRCRAFT_DELAY), 2) AS late_aircraft,
+  ROUND(AVG(WEATHER_DELAY), 2) AS weather
+FROM flights
+WHERE CANCELLED = 0;
+
+-- Insight: What’s the main reason behind delays?
+
+  
+  
+--   Top 10 Airlines by Number of Flights
+  
+  SELECT AIRLINE, COUNT(*) AS total_flights
+FROM flights
+GROUP BY AIRLINE
+ORDER BY total_flights DESC
+LIMIT 10;
+
+
+--   Top 10 Busiest Origin Airports
+
+SELECT ORIGIN_AIRPORT, COUNT(*) AS departures
+FROM flights
+GROUP BY ORIGIN_AIRPORT
+ORDER BY departures DESC
+LIMIT 10;
+
+
+--   Most Common Flight Routes
+
+SELECT ORIGIN_AIRPORT || ' -&gt; ' || DESTINATION_AIRPORT AS route, COUNT(*) AS flights
+FROM flights
+GROUP BY route
+ORDER BY flights DESC
+LIMIT 10;
+
+
+
+--   Delay Distribution (Arrival + Departure)
+
+SELECT 
+  COUNT(*) AS total_flights,
+  round(AVG(DEPARTURE_DELAY),2) AS avg_departure_delay,
+  round(AVG(ARRIVAL_DELAY),2) AS avg_arrival_delay,
+  MAX(DEPARTURE_DELAY) AS max_departure_delay,
+  MAX(ARRIVAL_DELAY) AS max_arrival_delay
+FROM flights
+WHERE CANCELLED = 0;
+
+
+
+--   Flights per Month
+
+SELECT MONTH, COUNT(*) AS total_flights
+FROM flights
+GROUP BY MONTH
+ORDER BY MONTH;
+
+
+
+
+-- EDA on airlines Table
+
+ Total Airlines
+SELECT COUNT(*) AS total_airlines FROM airlines;
+
+
+
+-- Airports by State
+
+SELECT STATE, COUNT(*) AS airport_count
+FROM airports
+GROUP BY STATE
+ORDER BY airport_count DESC;
+
+
+
+--  Top 10 Cities with Most Airports
+
+SELECT CITY, COUNT(*) AS airport_count
+FROM airports
+GROUP BY CITY
+ORDER BY airport_count DESC
+LIMIT 10;
+
+
+-- Avg Taxi_in and TAXI_OUT
+
+SELECT 
+  ORIGIN_AIRPORT,
+  round(AVG(TAXI_OUT),2) AS avg_taxi_out,
+  ROUND(AVG(TAXI_IN),2) AS avg_taxi_in
+FROM flights
+GROUP BY ORIGIN_AIRPORT
+ORDER BY avg_taxi_out DESC;
+
+
+
+	
+
+-- SELECT * FROM flights_cleaned LIMIT 10;
+
+
+-- Create Merged View (All Columns + Joins + Clean Values)
+-- 
+
+CREATE VIEW flights_cleaned AS
+SELECT 
+    f.*,
+    
+    -- Airline Name
+    al.AIRLINE AS AIRLINE_NAME,
+    
+    -- Origin Airport Details
+    ao.AIRPORT AS ORIGIN_AIRPORT_NAME,
+    ao.CITY AS ORIGIN_CITY,
+    ao.STATE AS ORIGIN_STATE,
+    ao.LATITUDE AS ORIGIN_LAT,
+    ao.LONGITUDE AS ORIGIN_LONG,
+    
+    -- Destination Airport Details
+    ad.AIRPORT AS DEST_AIRPORT_NAME,
+    ad.CITY AS DEST_CITY,
+    ad.STATE AS DEST_STATE,
+    ad.LATITUDE AS DEST_LAT,
+    ad.LONGITUDE AS DEST_LONG,
+    
+    -- Cancellation Reason Mapping
+    CASE f.CANCELLATION_REASON
+        WHEN 'A' THEN 'Carrier (Airline)'
+        WHEN 'B' THEN 'Weather'
+        WHEN 'C' THEN 'National Air System'
+        WHEN 'D' THEN 'Security'
+        ELSE 'Not Cancelled'
+    END AS CANCELLATION_REASON_DESC,
+    
+    -- Flight Status Mapping
+    CASE 
+        WHEN f.CANCELLED = 1 THEN 'Cancelled'
+        WHEN f.DIVERTED = 1 THEN 'Diverted'
+        WHEN f.ARRIVAL_DELAY &gt; 15 THEN 'Delayed'
+        ELSE 'On Time'
+    END AS FLIGHT_STATUS
+    
+FROM flights f
+
+-- Join with airlines
+LEFT JOIN airlines al 
+    ON f.AIRLINE = al.IATA_CODE
+
+-- Join with origin airport
+LEFT JOIN airports ao 
+    ON f.ORIGIN_AIRPORT = ao.IATA_CODE
+
+-- Join with destination airport
+LEFT JOIN airports ad 
+    ON f.DESTINATION_AIRPORT = ad.IATA_CODE;
+-- 
+
+
+
+
+SELECT * FROM flights_cleaned LIMIT 10;
+
+
+</sql><current_tab id="0"/></tab_sql></sqlb_project>
