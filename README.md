@@ -13,7 +13,6 @@ The project integrates **SQL** for data preparation and **Power BI** for visuali
 ---
 
 ## 📂 Dataset
-**Source:** [2015 Flight Delays and Cancellations](https://www.transtats.bts.gov/)  
 
 - **`flights.csv`** – Detailed flight data (year, month, airline, departure/arrival delays, cancellations)  
 - **`airlines.csv`** – Airline IATA codes and names  
@@ -47,12 +46,19 @@ The project integrates **SQL** for data preparation and **Power BI** for visuali
 
 ## 📊 Power BI Dashboard
 **Dashboard has 4 pages:**
-1. **Overview** – KPIs, delay trends, airport delay map  
-2. **Airline Performance** – OTP %, avg delays, cancellation breakdown  
-3. **Airport & Routes** – Top delay airports, route heatmap  
-4. **Delay Reasons & Forecasting** – Delay type analysis, predictions  
+1. **Overview** – KPIs, delay trends, airport delay map
+  <img width="940" height="556" alt="image" src="https://github.com/user-attachments/assets/335757e2-f13b-4dd8-9095-bef3a5e22236" />
 
-*(Add screenshots in repository for each dashboard page)*  
+2. **Airline Performance** – OTP %, avg delays, cancellation breakdown
+    <img width="940" height="529" alt="image" src="https://github.com/user-attachments/assets/5a4a4f27-cb83-49cb-a83a-f821b8239ebc" />
+
+3. **Airport & Routes** – Top delay airports, route heatmap
+   <img width="940" height="528" alt="image" src="https://github.com/user-attachments/assets/0e763d16-7bca-466e-9b70-8f3bf7f76f73" />
+
+4. **Delay Reasons & Forecasting** – Delay type analysis, predictions  
+<img width="940" height="528" alt="image" src="https://github.com/user-attachments/assets/8b52efb9-a343-41e2-890b-5a351aa9e75b" />
+
+
 
 ---
 
